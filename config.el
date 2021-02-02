@@ -34,6 +34,20 @@
 ;; numbers are disabled. For relative line numbers, set this to `relative'.
 (setq display-line-numbers-type t)
 
+;;(add-hook! 'burly-open-bookmark #'eshell-bookmark-setup)
+;;(after! eshell (eshell-bookmark-setup))
+
+;;(use-package! eshell-bookmark
+;;  :after eshell
+;;  :config
+;;  (add-hook! 'eshell-mode-hook #'eshell-bookmark-setup))
+
+;; Add ability to bookmark eshell
+(eshell-bookmark-setup)
+(add-hook! 'eshell-mode-hook #'eshell-bookmark-setup)
+
+
+
 
 ;; Here are some additional functions/macros that could help you configure Doom:
 ;;
