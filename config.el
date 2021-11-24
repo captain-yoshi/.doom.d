@@ -46,7 +46,10 @@
 (eshell-bookmark-setup)
 (add-hook! 'eshell-mode-hook #'eshell-bookmark-setup)
 
-
+;; Specify python debugger
+(after! dap-python
+  (setq dap-python-executable "python3"
+        dap-python-debugger 'debugpy))
 
 
 ;; Here are some additional functions/macros that could help you configure Doom:
