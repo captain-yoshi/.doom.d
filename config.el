@@ -51,6 +51,21 @@
   (setq dap-python-executable "python3"
         dap-python-debugger 'debugpy))
 
+;; https://emacs.stackexchange.com/a/27855
+(defun tv/increment-number-in-file-name (name)
+  (with-temp-buffer
+    (insert name)
+    (search-backward "." nil t)
+    (re-search-backward "[0-9]+" nil t)
+    ;(skip-chars-forward "0") ;; Would preserve 0s
+    (if (looking-at "[0123456789]+")
+        (replace-match (number-to-string (1+ (string-to-number (match-string 0)))))
+      (insert "-1"))
+    (buffer-string)))
+
+(defun write-file-increment ()
+  (interactive)
+  (write-file (tv/increment-number-in-file-name (buffer-file-name))))
 
 ;; Here are some additional functions/macros that could help you configure Doom:
 ;;
