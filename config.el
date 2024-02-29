@@ -34,6 +34,10 @@
 ;; numbers are disabled. For relative line numbers, set this to `relative'.
 (setq display-line-numbers-type t)
 
+;; disable ref counts -> slow in c++ and annoying
+;; https://emacs-lsp.github.io/lsp-mode/tutorials/how-to-turn-off/
+(setq lsp-lens-enable nil)
+
 ;;(add-hook! 'burly-open-bookmark #'eshell-bookmark-setup)
 ;;(after! eshell (eshell-bookmark-setup))
 
