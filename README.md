@@ -46,4 +46,21 @@ foo@bar:~$ sudo cp -s ~/.config/emacs/bin/doom /usr/local/bin/
 foo@bar:~$ sudo apt install markdown
 foo@bar:~$ sudo apt install clang-format
 
+# :lang cc
+foo@bar:~$ sudo apt-get install glslang-tools
+
+# :lang python
+foo@bar:~$ sudo apt-get install black     # code formatting
+foo@bar:~$ # import management
+foo@bar:~$ # import sorting
+foo@bar:~$ # pipenv support
+foo@bar:~$ # running tests through nose
+foo@bar:~$ # running tests through pytest
+foo@bar:~$ # conda
+
+# :lang sh
+foo@bar:~$ sudo apt install shfmt
+
+
+
 ```
