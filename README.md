@@ -33,7 +33,8 @@ foo@bar:~$ ~/.config/emacs/bin/doom install
 # check for warnings
 foo@bar:~$ ~/.config/emacs/bin/doom doctor
 
-
+# add ~/.config/emacs/bin to path (optional)
+foo@bar:~$ sudo cp -s ~/.config/emacs/bin/doom /usr/local/bin/
 ```
 
 
