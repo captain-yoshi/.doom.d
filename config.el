@@ -71,6 +71,17 @@
   (interactive)
   (write-file (tv/increment-number-in-file-name (buffer-file-name))))
 
+;; https://stackoverflow.com/a/2906371
+(defun python-send-buffer-with-my-args (args)
+  (interactive "sPython arguments: ")
+  (let ((source-buffer (current-buffer)))
+    (with-temp-buffer
+      (insert "import sys; sys.argv = '''" args "'''.split()\n")
+      (insert-buffer-substring source-buffer)
+      (python-shell-send-buffer))))
+
+(global-set-key "\C-c\C-a" 'python-send-buffer-with-my-args)
+
 ;; Here are some additional functions/macros that could help you configure Doom:
 ;;
 ;; - `load!' for loading external *.el files relative to this one
