@@ -49,6 +49,9 @@ foo@bar:~$ sudo apt install clang-format
 # :lang cc
 foo@bar:~$ sudo apt-get install glslang-tools
 
+# Ubuntu 22.04
+sudo apt install libstdc++-12-dev
+
 # :lang python
 foo@bar:~$ sudo apt-get install black     # code formatting
 foo@bar:~$ # import management
