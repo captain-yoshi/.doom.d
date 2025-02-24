@@ -38,6 +38,15 @@
 ;; https://emacs-lsp.github.io/lsp-mode/tutorials/how-to-turn-off/
 (setq lsp-lens-enable nil)
 
+;; Disable autoformatting onsave in nxml-mode.
+;; https://discord.com/channels/406534637242810369/1343412176920121445/1343433693980790794
+;; (add-to-list '+format-on-save-disabled-modes 'nxml-mode)
+
+;; Use xmlindent formatter
+;; https://discord.com/channels/406534637242810369/1343412176920121445/1343640100311007336
+(after! nxml-mode
+  (set-formatter! 'xmlindent '("xmlindent" "-l" "80" "-i" "2") :modes '(nxml-mode)))
+
 ;;(add-hook! 'burly-open-bookmark #'eshell-bookmark-setup)
 ;;(after! eshell (eshell-bookmark-setup))
 
