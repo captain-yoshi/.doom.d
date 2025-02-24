@@ -70,7 +70,7 @@
     (insert name)
     (search-backward "." nil t)
     (re-search-backward "[0-9]+" nil t)
-    ;(skip-chars-forward "0") ;; Would preserve 0s
+    ;;(skip-chars-forward "0") ;; Would preserve 0s
     (if (looking-at "[0123456789]+")
         (replace-match (number-to-string (1+ (string-to-number (match-string 0)))))
       (insert "-1"))
