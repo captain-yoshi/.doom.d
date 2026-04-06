@@ -1,0 +1,345 @@
+;;; $DOOMDIR/config.el -*- lexical-binding: t; -*-
+
+;; Place your private configuration here! Remember, you do not need to run 'doom
+;; sync' after modifying this file!
+
+
+;; Some functionality uses this to identify you, e.g. GPG configuration, email
+;; clients, file templates and snippets. It is optional.
+;; (setq user-full-name "John Doe"
+;;       user-mail-address "john@doe.com")
+
+;; Doom exposes five (optional) variables for controlling fonts in Doom:
+;;
+;; - `doom-font' -- the primary font to use
+;; - `doom-variable-pitch-font' -- a non-monospace font (where applicable)
+;; - `doom-big-font' -- used for `doom-big-font-mode'; use this for
+;;   presentations or streaming.
+;; - `doom-symbol-font' -- for symbols
+;; - `doom-serif-font' -- for the `fixed-pitch-serif' face
+;;
+;; See 'C-h v doom-font' for documentation and more examples of what they
+;; accept. For example:
+;;
+;;(setq doom-font (font-spec :family "Fira Code" :size 12 :weight 'semi-light)
+;;      doom-variable-pitch-font (font-spec :family "Fira Sans" :size 13))
+;;
+;; If you or Emacs can't find your font, use 'M-x describe-font' to look them
+;; up, `M-x eval-region' to execute elisp code, and 'M-x doom/reload-font' to
+;; refresh your font settings. If Emacs still can't find your font, it likely
+;; wasn't installed correctly. Font issues are rarely Doom issues!
+
+;; There are two ways to load a theme. Both assume the theme is installed and
+;; available. You can either set `doom-theme' or manually load a theme with the
+;; `load-theme' function. This is the default:
+(setq doom-theme 'doom-one)
+
+;; This determines the style of line numbers in effect. If set to `nil', line
+;; numbers are disabled. For relative line numbers, set this to `relative'.
+(setq display-line-numbers-type t)
+
+;; If you use `org' and don't want your org files in the default location below,
+;; change `org-directory'. It must be set before org loads!
+(setq org-directory "~/org/")
+
+
+;; Whenever you reconfigure a package, make sure to wrap your config in an
+;; `with-eval-after-load' block, otherwise Doom's defaults may override your
+;; settings. E.g.
+;;
+;;   (with-eval-after-load 'PACKAGE
+;;     (setq x y))
+;;
+;; The exceptions to this rule:
+;;
+;;   - Setting file/directory variables (like `org-directory')
+;;   - Setting variables which explicitly tell you to set them before their
+;;     package is loaded (see 'C-h v VARIABLE' to look them up).
+;;   - Setting doom variables (which start with 'doom-' or '+').
+;;
+;; Here are some additional functions/macros that will help you configure Doom.
+;;
+;; - `load!' for loading external *.el files relative to this one
+;; - `add-load-path!' for adding directories to the `load-path', relative to
+;;   this file. Emacs searches the `load-path' when you load packages with
+;;   `require' or `use-package'.
+;; - `map!' for binding new keys
+;;
+;; To get information about any of these functions/macros, move the cursor over
+;; the highlighted symbol at press 'K' (non-evil users must press 'C-c c k').
+;; This will open documentation for it, including demos of how they are used.
+;; Alternatively, use `C-h o' to look up a symbol (functions, variables, faces,
+;; etc).
+;;
+;; You can also try 'gd' (or 'C-c c d') to jump to their definition and see how
+;; they are implemented.
+
+
+;; ;;; --- Remote dev: sshfs + TRAMP hybrid setup ---
+
+;; (defvar my/remote-hosts-config "~/.config/remote-hosts.conf")
+
+;; (defun my/load-remote-hosts ()
+;;   "Parse config file into a list of mappings."
+;;   (when (file-exists-p my/remote-hosts-config)
+;;     (with-temp-buffer
+;;       (insert-file-contents my/remote-hosts-config)
+;;       (let (hosts)
+;;         (dolist (line (split-string (buffer-string) "\n" t))
+;;           (unless (string-match-p "^#" line)
+;;             (let* ((parts (split-string line "[ \t]+" t))
+;;                    (name (nth 0 parts))
+;;                    (remote (nth 1 parts))
+;;                    (remote-path (file-name-as-directory (nth 2 parts)))
+;;                    (local (file-name-as-directory
+;;                            (expand-file-name (nth 3 parts)))))
+;;               (push (list name remote remote-path local) hosts))))
+;;         hosts))))
+
+;; (defvar my/remote-hosts (my/load-remote-hosts))
+
+;; ;;; --- Normalize TRAMP paths (fix ~ issues globally) ---
+
+;; (defun my/normalize-tramp-path (path)
+;;   "Fix TRAMP paths using ~ → absolute home."
+;;   (if (and (stringp path)
+;;            (string-match "^/ssh:\\([^:]+\\):~/" path))
+;;       (let* ((remote (match-string 1 path))
+;;              (user (car (split-string remote "@")))
+;;              (fixed (concat "/ssh:" remote ":/home/" user "/")))
+;;         (replace-regexp-in-string
+;;          "^/ssh:[^:]+:~/"
+;;          fixed
+;;          path))
+;;     path))
+
+;; ;; Apply globally (fix VC, Projectile, etc.)
+;; ;; (advice-add 'expand-file-name :filter-return #'my/normalize-tramp-path)
+;; ;; (advice-add 'file-name-directory :filter-return #'my/normalize-tramp-path)
+
+;; ;;; --- sshfs → TRAMP (open files via TRAMP) ---
+
+;; (defun my/mount-to-tramp (path)
+;;   "Convert sshfs path to TRAMP path."
+;;   (let ((path (expand-file-name path)))
+;;     (catch 'result
+;;       (dolist (host my/remote-hosts)
+;;         (let* ((remote (nth 1 host))
+;;                (remote-path (nth 2 host))
+;;                (local (nth 3 host)))
+;;           (when (string-prefix-p local path)
+;;             (let ((relative (string-remove-prefix local path)))
+;;               (throw 'result
+;;                      (concat "/ssh:" remote ":" remote-path relative))))))
+;;       path)))
+
+;; (defun my/find-file-smart (orig-fn &rest args)
+;;   "Automatically open sshfs files via TRAMP."
+;;   (let* ((file (car args))
+;;          (normalized (and file (my/normalize-tramp-path file)))
+;;          (mapped (and normalized (my/mount-to-tramp normalized))))
+;;     (apply orig-fn (list (or mapped normalized file)))))
+
+;; (advice-add 'find-file :around #'my/find-file-smart)
+
+;; ;;; --- TRAMP → sshfs (search locally via sshfs) ---
+
+;; (defun my/tramp-to-mount (path)
+;;   "Convert TRAMP path to sshfs mount path."
+;;   (when (file-remote-p path)
+;;     (let ((path (my/normalize-tramp-path path)))
+;;       (catch 'result
+;;         (dolist (host my/remote-hosts)
+;;           (let* ((remote (nth 1 host))
+;;                  (remote-path (nth 2 host))
+;;                  (local (nth 3 host)))
+;;             (when (string-match
+;;                    (concat "^/ssh:" (regexp-quote remote) ":" (regexp-quote remote-path))
+;;                    path)
+;;               (let ((relative (string-remove-prefix
+;;                                (concat "/ssh:" remote ":" remote-path)
+;;                                path)))
+;;                 (throw 'result (concat local relative))))))
+;;         nil))))
+
+;; (defun my/project-root-smart ()
+;;   "Use sshfs path for search even when in TRAMP."
+;;   (or (my/tramp-to-mount default-directory)
+;;       default-directory))
+
+;; ;;; --- Smart search (always local ripgrep) ---
+
+;; (defun my/search-project-smart ()
+;;   (interactive)
+;;   (let ((dir (my/project-root-smart)))
+;;     (message "SEARCH DIR: %s" dir)
+;;     (let ((default-directory dir))
+;;       (+default/search-project))))
+
+;; (defun my/search-symbol-smart ()
+;;   "Search symbol using sshfs when in TRAMP."
+;;   (interactive)
+;;   (let ((default-directory (my/project-root-smart)))
+;;     (call-interactively #'+default/search-project-for-symbol-at-point)))
+
+;; (map! :leader
+;;       :desc "Smart project search" "/" #'my/search-project-smart
+;;       :desc "Smart search symbol" "*" #'my/search-symbol-smart)
+
+;;; ============================================================
+;;; Remote dev: sshfs-first workflow (NO TRAMP by default)
+;;; ============================================================
+
+(defvar my/remote-hosts-config "~/.config/remote-hosts.conf"
+  "Config file describing sshfs mounts.")
+
+(defun my/load-remote-hosts ()
+  "Parse config file into a list of mappings:
+(name remote remote-path local-path)."
+  (when (file-exists-p my/remote-hosts-config)
+    (with-temp-buffer
+      (insert-file-contents my/remote-hosts-config)
+      (let (hosts)
+        (dolist (line (split-string (buffer-string) "\n" t))
+          (unless (or (string-match-p "^#" line)
+                      (string-blank-p line))
+            (pcase-let* ((`(,name ,remote ,remote-path ,local)
+                          (split-string line "[ \t]+" t)))
+              (push (list name
+                          remote
+                          (file-name-as-directory remote-path)
+                          (file-name-as-directory (expand-file-name local)))
+                    hosts))))
+        hosts))))
+
+(defvar my/remote-hosts (my/load-remote-hosts)
+  "List of configured sshfs hosts.")
+
+(defun my/reload-remote-hosts ()
+  "Reload sshfs host config."
+  (interactive)
+  (setq my/remote-hosts (my/load-remote-hosts))
+  (message "Reloaded sshfs hosts"))
+
+;;; ============================================================
+;;; TRAMP → sshfs (fallback only)
+;;; ============================================================
+
+(defun my/tramp-to-mount (path)
+  "Convert TRAMP PATH to sshfs mount path."
+  (when (and path (file-remote-p path))
+    (catch 'result
+      (dolist (host my/remote-hosts)
+        (pcase-let ((`(,_ ,remote ,remote-path ,local) host))
+          (when (string-match
+                 (concat "^/ssh:" (regexp-quote remote) ":" (regexp-quote remote-path))
+                 path)
+            (let ((relative (string-remove-prefix
+                             (concat "/ssh:" remote ":" remote-path)
+                             path)))
+              (throw 'result (concat local relative))))))
+      nil)))
+
+(defun my/project-root-smart ()
+  "Prefer sshfs path if current buffer is TRAMP."
+  (or (my/tramp-to-mount default-directory)
+      default-directory))
+
+;;; ============================================================
+;;; Smart search (always LOCAL ripgrep via sshfs)
+;;; ============================================================
+
+(defun my/search-project-smart ()
+  "Search project using local ripgrep (sshfs-aware)."
+  (interactive)
+  (let ((default-directory (my/project-root-smart)))
+    (+default/search-project)))
+
+(defun my/search-symbol-smart ()
+  "Search symbol using local ripgrep (sshfs-aware)."
+  (interactive)
+  (let ((default-directory (my/project-root-smart)))
+    (call-interactively #'+default/search-project-for-symbol-at-point)))
+
+(map! :leader
+      :desc "Smart project search" "/" #'my/search-project-smart
+      :desc "Smart search symbol" "*" #'my/search-symbol-smart)
+
+;;; ============================================================
+;;; Projectile optimizations (CRITICAL for sshfs)
+;;; ============================================================
+
+(after! projectile
+  ;; Use external tools (rg/fd) instead of Emacs scanning
+  (setq projectile-indexing-method 'alien)
+
+  ;; Enable caching (reduces sshfs stat calls)
+  (setq projectile-enable-caching t)
+
+  ;; Ignore heavy directories
+  (setq projectile-globally-ignored-directories
+        '(".git" "node_modules" "build" "dist" ".cache"
+          ".venv" "__pycache__" ".mypy_cache" ".pytest_cache"))
+
+  ;; Optional: ignore large files
+  (setq projectile-globally-ignored-file-suffixes
+        '(".o" ".so" ".a" ".pyc" ".class")))
+
+;;; ============================================================
+;;; Ripgrep tuning (faster over sshfs)
+;;; ============================================================
+
+(after! counsel
+  (setq counsel-rg-base-command
+        "rg -M 240 --with-filename --no-heading --line-number --color never %s ."))
+
+;;; ============================================================
+;;; LSP optimizations (VERY IMPORTANT for sshfs)
+;;; ============================================================
+
+(after! lsp-mode
+  ;; Disable file watchers (huge sshfs slowdown otherwise)
+  (setq lsp-enable-file-watchers nil)
+
+  ;; Prevent too many tracked files
+  (setq lsp-file-watch-threshold 1000)
+
+  ;; Optional: reduce overhead
+  (setq lsp-idle-delay 0.5)
+  (setq lsp-log-io nil))
+
+;;; ============================================================
+;;; Quality of life
+;;; ============================================================
+
+;; Reload hosts easily
+(map! :leader
+      :desc "Reload sshfs hosts"
+      "o r" #'my/reload-remote-hosts)
+
+;; Debug helper
+(defun my/print-remote-hosts ()
+  (interactive)
+  (message "%S" my/remote-hosts))
+
+;;; ============================================================
+;;; Optional: TRAMP tuning (only for fallback use)
+;;; ============================================================
+
+(after! tramp
+  ;; Faster SSH connection reuse
+  (setq tramp-ssh-controlmaster-options
+        "-o ControlMaster=auto -o ControlPersist=10m")
+
+  ;; Reduce TRAMP verbosity
+  (setq tramp-verbose 1))
+
+;; RasberryPi Pico
+(load! "modules/pico/config")
+(load! "modules/pico/keybinds")
+
+
+;; Ensure Emacs uses the same environment variables as your shell
+(use-package! exec-path-from-shell
+  :config
+  (exec-path-from-shell-initialize))
