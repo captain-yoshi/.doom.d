@@ -349,8 +349,6 @@
 ;;; CMake / compile_commands auto-setup
 ;;; ============================================================
 
-;;; --- CMake compile_commands auto setup ---
-
 (after! projectile
 
   ;; 🔹 Robust project root detection
@@ -373,7 +371,7 @@
           (when (or (not (file-exists-p cc))
                     (file-newer-than-file-p cmake-file cc))
 
-            ;; UX message
+            ;; 🔔 UX message
             (message "🔧 CMake: generating compile_commands.json...")
 
             ;; Clear buffer
@@ -386,15 +384,20 @@
                     "cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ."
                     nil buf t)))
 
-              ;; Symlink if success
-              (when (= exit-code 0)
-                (call-process-shell-command
-                 "ln -sf build/compile_commands.json ." nil 0))
+              (if (= exit-code 0)
+                  (progn
+                    ;; 🔗 Symlink to root (clangd expects it here)
+                    (call-process-shell-command
+                     "ln -sf build/compile_commands.json ." nil 0)
 
-              ;; Feedback
-              (if (and (= exit-code 0) (file-exists-p cc))
-                  (message "✅ CMake: compile_commands.json ready")
+                    (message "✅ CMake: compile_commands.json ready")
 
+                    ;; 🔥 Reload LSP so clangd picks it up
+                    (when (and (bound-and-true-p lsp-mode)
+                               (lsp-workspaces))
+                      (lsp-workspace-restart (car (lsp-workspaces)))))
+
+                ;; ❌ Failure
                 (message "❌ CMake failed — see %s" buf)
                 (display-buffer buf))))))))
 
@@ -409,5 +412,41 @@
                          (string-match-p "CMakeLists.txt$" buffer-file-name))
                 (my/cmake-ensure-compile-commands)))))
 
-;; (setq lsp-clients-clangd-args
-;;       '("--compile-commands-dir=build"))
+
+;;; --- Project detection ---
+
+;; (defun my/is-pico-project ()
+;;   "Detect if current project uses pico-sdk."
+;;   (let ((root (or (ignore-errors (projectile-project-root))
+;;                   default-directory)))
+;;     (when (and root (file-exists-p (expand-file-name "CMakeLists.txt" root)))
+;;       (with-temp-buffer
+;;         (insert-file-contents (expand-file-name "CMakeLists.txt" root))
+;;         (string-match-p "pico_sdk_init" (buffer-string))))))
+
+;; (defun my/project-uses-arm-gcc ()
+;;   "Detect ARM toolchain from compile_commands.json."
+;;   (let* ((root (or (ignore-errors (projectile-project-root))
+;;                    default-directory))
+;;          (cc (expand-file-name "compile_commands.json" root)))
+;;     (when (file-exists-p cc)
+;;       (with-temp-buffer
+;;         (insert-file-contents cc)
+;;         (string-match-p "arm-none-eabi" (buffer-string))))))
+
+;; (defun my/setup-clangd-for-project ()
+;;   "Configure clangd per project."
+;;   (let ((is-arm
+;;          (or (my/is-pico-project)
+;;              (my/project-uses-arm-gcc))))
+;;     (message "🔍 clangd setup: is-arm=%s" is-arm)
+;;     (when is-arm
+;;       (let ((driver (string-trim
+;;                      (shell-command-to-string "which arm-none-eabi-g++"))))
+;;         (message "🔧 Using ARM driver: %s" driver)
+;;         (setq-local lsp-clients-clangd-args
+;;                     (list (format "--query-driver=%s" driver)))))))
+
+;; (add-hook 'lsp-before-initialize-hook #'my/setup-clangd-for-project)
+
+(setq lsp-clients-clangd-args '("--query-driver=**"))
