@@ -343,3 +343,71 @@
 (use-package! exec-path-from-shell
   :config
   (exec-path-from-shell-initialize))
+
+
+;;; ============================================================
+;;; CMake / compile_commands auto-setup
+;;; ============================================================
+
+;;; --- CMake compile_commands auto setup ---
+
+(after! projectile
+
+  ;; 🔹 Robust project root detection
+  (defun my/project-root ()
+    "Robust project root detection."
+    (or (ignore-errors (projectile-project-root))
+        (locate-dominating-file default-directory "CMakeLists.txt")
+        default-directory))
+
+  ;; 🔹 Main function
+  (defun my/cmake-ensure-compile-commands ()
+    "Ensure compile_commands.json exists and is up-to-date."
+    (let* ((root (my/project-root))
+           (cmake-file (expand-file-name "CMakeLists.txt" root))
+           (cc (expand-file-name "compile_commands.json" root))
+           (buf "*cmake-configure*"))
+
+      (when (file-exists-p cmake-file)
+        (let ((default-directory root))
+          (when (or (not (file-exists-p cc))
+                    (file-newer-than-file-p cmake-file cc))
+
+            ;; UX message
+            (message "🔧 CMake: generating compile_commands.json...")
+
+            ;; Clear buffer
+            (with-current-buffer (get-buffer-create buf)
+              (erase-buffer))
+
+            ;; Run CMake
+            (let ((exit-code
+                   (call-process-shell-command
+                    "cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ."
+                    nil buf t)))
+
+              ;; Symlink if success
+              (when (= exit-code 0)
+                (call-process-shell-command
+                 "ln -sf build/compile_commands.json ." nil 0))
+
+              ;; Feedback
+              (if (and (= exit-code 0) (file-exists-p cc))
+                  (message "✅ CMake: compile_commands.json ready")
+
+                (message "❌ CMake failed — see %s" buf)
+                (display-buffer buf))))))))
+
+  ;; 🔹 Run when switching project
+  (add-hook 'projectile-after-switch-project-hook
+            #'my/cmake-ensure-compile-commands)
+
+  ;; 🔹 Re-run when CMakeLists changes
+  (add-hook 'after-save-hook
+            (lambda ()
+              (when (and buffer-file-name
+                         (string-match-p "CMakeLists.txt$" buffer-file-name))
+                (my/cmake-ensure-compile-commands)))))
+
+;; (setq lsp-clients-clangd-args
+;;       '("--compile-commands-dir=build"))
