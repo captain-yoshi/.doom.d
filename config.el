@@ -451,5 +451,91 @@
 
 (setq lsp-clients-clangd-args '("--query-driver=**"))
 
+;;; ============================================================
+;;; Magit remote: auto-detect host from mount name
+;;; ============================================================
+(defvar my/remote-hosts-file "~/.config/remote-hosts.conf")
+
+(defun my/parse-remote-hosts ()
+  "Parse remote-hosts.conf into a list of (mount userhost remotepath)."
+  (when (file-exists-p my/remote-hosts-file)
+    (with-temp-buffer
+      (insert-file-contents my/remote-hosts-file)
+      (cl-loop for line in (split-string (buffer-string) "\n" t)
+               unless (string-match-p "^\\s-*#" line)
+               collect
+               (let* ((parts (split-string line " " t))
+                      (name (nth 0 parts))
+                      (userhost (nth 1 parts))
+                      (remotepath (nth 2 parts))
+                      (mount (expand-file-name (nth 3 parts))))
+                 (list mount userhost remotepath))))))
+
+(defun my/find-tramp-path (dir)
+  "Return TRAMP path if DIR is inside an SSHFS mount."
+  (let ((hosts (my/parse-remote-hosts)))
+    (cl-loop for (mount userhost remotepath) in hosts
+             when (string-prefix-p mount dir)
+             return
+             (let* ((relative (string-remove-prefix mount dir))
+                    (tramp-path (format "/ssh:%s:%s%s"
+                                        userhost
+                                        remotepath
+                                        relative)
+
+                                ))
+               tramp-path))))
+
+(defun my/magit-status-smart (&optional directory)
+  "Open Magit, switching SSHFS paths to TRAMP automatically."
+  (interactive)
+  (let* ((dir (or directory default-directory))
+         (tramp-path (my/find-tramp-path dir))
+         (final-dir (or tramp-path dir)))
+
+    (let ((git-root (magit-toplevel final-dir)))
+      (if git-root
+          (progn
+            (when tramp-path
+              (message "Magit via TRAMP: %s" tramp-path))
+            (magit-status git-root))
+        (user-error "Not inside a Git repository: %s" final-dir)))))
+
+;; Replace Magit binding
+(map! :leader
+      :desc "Magit (smart SSHFS → TRAMP)"
+      "g g" #'my/magit-status-smart)
+
+
+;; (defun my/ensure-remote-git-config (dir)
+;;   "Ensure git user.name and user.email are set on remote hosts for DIR."
+;;   (when (file-remote-p dir)
+;;     (let ((default-directory dir))
+;;       (let ((config (shell-command-to-string "git config --global --list 2>/dev/null")))
+;;         (unless (and (string-match "user.name=" config)
+;;                      (string-match "user.email=" config))
+;;           (message "Setting remote git identity...")
+;;           (shell-command
+;;            "git config --global user.name 'Captain Yoshi' && git config --global user.email 'captain.yoshisaur@gmail.com'"))))))
+
+(defun my/tramp-git-identity-env ()
+  "Set git identity when working over TRAMP."
+  (when (file-remote-p default-directory)
+    (setenv "GIT_AUTHOR_NAME" "Captain Yoshi")
+    (setenv "GIT_AUTHOR_EMAIL" "captain.yoshisaur@gmail.com")
+    (setenv "GIT_COMMITTER_NAME" "Captain Yoshi")
+    (setenv "GIT_COMMITTER_EMAIL" "captain.yoshisaur@gmail.com")))
+
+(add-hook 'find-file-hook #'my/tramp-git-identity-env)
+
+
+
+;; C++: use clangd diagnostics only
+(after! flycheck
+  (setq-default flycheck-disabled-checkers
+                '(c/c++-gcc
+                  c/c++-clang
+                  c/c++-cppcheck)))
+
 ;; disable lsp headerline breadcrumb
 (remove-hook 'lsp-mode-hook #'lsp-headerline-breadcrumb-mode)
