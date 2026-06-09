@@ -450,3 +450,6 @@
 ;; (add-hook 'lsp-before-initialize-hook #'my/setup-clangd-for-project)
 
 (setq lsp-clients-clangd-args '("--query-driver=**"))
+
+;; disable lsp headerline breadcrumb
+(remove-hook 'lsp-mode-hook #'lsp-headerline-breadcrumb-mode)
