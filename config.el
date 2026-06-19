@@ -597,3 +597,15 @@
         (gptel-make-gh-copilot "Copilot"))
 
   (setq gptel-model 'claude-sonnet-4.6))
+
+
+;; -------------------------------
+;; ECA
+;; -------------------------------
+
+(use-package! eca
+  :defer t
+
+  :init
+  (define-key my/ai-map (kbd "e") #'eca)
+  (define-key my/ai-map (kbd "E") #'eca-chat-new))

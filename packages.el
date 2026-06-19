@@ -9,6 +9,10 @@
 
 (package! gptel)
 
+(package! eca
+  :recipe (:host github
+           :repo "editor-code-assistant/eca-emacs"))
+
 ;; -*- no-byte-compile: t; -*-
 ;;; $DOOMDIR/packages.el
 
