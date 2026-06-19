@@ -539,3 +539,61 @@
 
 ;; disable lsp headerline breadcrumb
 (remove-hook 'lsp-mode-hook #'lsp-headerline-breadcrumb-mode)
+
+
+;; -------------------------------
+;; Embark -> SPC A
+;; -------------------------------
+
+(map! :leader
+      :n "A" #'embark-act)
+
+;; Remove Doom's SPC a binding
+(define-key doom-leader-map (kbd "a") nil)
+
+;; Create AI prefix
+(define-prefix-command 'my/ai-map)
+(define-key doom-leader-map (kbd "a") 'my/ai-map)
+
+
+;; -------------------------------
+;; Copilot
+;; -------------------------------
+
+(use-package! copilot
+  :hook (prog-mode . copilot-mode)
+
+  :bind (:map copilot-completion-map
+              ("<tab>" . copilot-accept-completion)
+              ("TAB" . copilot-accept-completion)))
+
+
+;; -------------------------------
+;; Claude Code
+;; -------------------------------
+
+(use-package! claude-code-ide
+  :commands (claude-code-ide-menu)
+  :init
+  ;; Add key immediately, autoload command when used
+  (define-key my/ai-map (kbd "a") #'claude-code-ide-menu)
+
+  :config
+  (claude-code-ide-emacs-tools-setup))
+
+
+;; -------------------------------
+;; GPTel
+;; -------------------------------
+
+(use-package! gptel
+  :commands (gptel gptel-menu)
+  :init
+  (define-key my/ai-map (kbd "c") #'gptel)
+  (define-key my/ai-map (kbd "m") #'gptel-menu)
+
+  :config
+  (setq gptel-backend
+        (gptel-make-gh-copilot "Copilot"))
+
+  (setq gptel-model 'claude-sonnet-4.6))
