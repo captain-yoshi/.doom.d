@@ -609,3 +609,18 @@
   :init
   (define-key my/ai-map (kbd "e") #'eca)
   (define-key my/ai-map (kbd "E") #'eca-chat-new))
+
+
+;; -------------------------------
+;; Pre-commit
+;; -------------------------------
+
+(defun my/pre-commit-run-all ()
+  "Run pre-commit on the entire repository."
+  (interactive)
+  (compile "pre-commit run --all-files"))
+
+(map! :leader
+      (:prefix ("c" . "code")
+       :desc "Pre-commit (all files)"
+       "P" #'my/pre-commit-run-all))
