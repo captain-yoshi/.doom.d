@@ -624,3 +624,18 @@
       (:prefix ("c" . "code")
        :desc "Pre-commit (all files)"
        "P" #'my/pre-commit-run-all))
+
+
+;;; ============================================================
+;;; JSONC
+;;; ============================================================
+
+(add-to-list 'treesit-language-source-alist
+             '(json "https://github.com/tree-sitter/tree-sitter-json"))
+
+(define-derived-mode jsonc-mode json-ts-mode "JSONC"
+  "Major mode for JSON with comments."
+  (setq-local comment-start "// ")
+  (setq-local comment-end ""))
+
+(add-to-list 'auto-mode-alist '("\\.jsonc\\'" . jsonc-mode))
