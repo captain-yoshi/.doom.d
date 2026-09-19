@@ -632,3 +632,76 @@
 
 (add-to-list 'auto-mode-alist
              '("\\.jsonc\\'" . jsonc-mode))
+
+
+;;; ============================================================
+;;; Smart numbered workspace switching
+;;; ============================================================
+
+;; How long to wait for a second digit when one is possible.
+;; Example with 15 workspaces:
+;;   SPC TAB 1   -> waits this long, then selects workspace 1
+;;   SPC TAB 15  -> immediately selects workspace 15
+;;   SPC TAB 2   -> immediately selects workspace 2
+(defvar my/workspace-number-timeout 0.35
+  "Seconds to wait for another workspace digit.")
+
+(defun my/workspace-switch-number (first-digit)
+  "Switch to a numbered workspace, supporting multiple digits."
+  (let* ((workspaces (+workspace-list-names))
+         (count (length workspaces))
+         (first (- first-digit ?0))
+         (next-decade (* first 10)))
+
+    ;; If FIRST could begin a valid two-digit workspace number,
+    ;; briefly wait for another digit.
+    (if (<= next-decade count)
+        (let ((event (read-event nil nil my/workspace-number-timeout)))
+          (if (and (characterp event)
+                   (>= event ?0)
+                   (<= event ?9))
+              ;; Second digit entered.
+              (let ((number (+ (* first 10) (- event ?0))))
+                (if (<= 1 number count)
+                    (+workspace/switch-to
+                     (nth (1- number) workspaces))
+                  (message "Workspace %d does not exist" number)))
+
+            ;; Timeout or non-digit: select the single-digit workspace.
+            ;; Preserve a non-digit key so Emacs can process it normally.
+            (when event
+              (setq unread-command-events
+                    (cons event unread-command-events)))
+
+            (+workspace/switch-to
+             (nth (1- first) workspaces))))
+
+      ;; No valid two-digit number can start with FIRST,
+      ;; so switch immediately.
+      (if (<= first count)
+          (+workspace/switch-to
+           (nth (1- first) workspaces))
+        (message "Workspace %d does not exist" first)))))
+
+;; Generate interactive commands for 1..9.
+(dotimes (i 9)
+  (let* ((number (1+ i))
+         (fn (intern (format "my/workspace-switch-%d" number))))
+    (fset fn
+          `(lambda ()
+             (interactive)
+             (my/workspace-switch-number ,(+ ?0 number))))))
+
+;; Replace Doom's normal SPC TAB 1..9 bindings.
+(after! persp-mode
+  (map! :leader
+        (:prefix ("TAB" . "workspace")
+                 "1" #'my/workspace-switch-1
+                 "2" #'my/workspace-switch-2
+                 "3" #'my/workspace-switch-3
+                 "4" #'my/workspace-switch-4
+                 "5" #'my/workspace-switch-5
+                 "6" #'my/workspace-switch-6
+                 "7" #'my/workspace-switch-7
+                 "8" #'my/workspace-switch-8
+                 "9" #'my/workspace-switch-9)))
