@@ -705,3 +705,107 @@
                  "7" #'my/workspace-switch-7
                  "8" #'my/workspace-switch-8
                  "9" #'my/workspace-switch-9)))
+
+
+;;; ============================================================
+;;; Predefined workspace sets — SPC TAB p <set>
+;;; ============================================================
+
+(defvar my/workspace-project-root "~/ws/dev/"
+  "Root directory containing development projects.")
+
+(defvar my/workspace-project-sets
+  '(("1"
+     "datalogger"
+     "camera_control_lab"
+     "argus_experiment"
+     "argus_framework"
+     "argus_framework_datalogger"
+     "argus_core"
+     "argus_model"
+     "argus_control"
+     "argus_trajectory"
+     "argus_system"
+     "argus_vision"
+     "argus_async"
+     "argus_stimulus"
+     "argus_input"
+     "argus_characterization"
+     "argus_hardware"
+     "argus_hardware_axis"
+     "argus_hardware_infiniti"
+     "argus_hardware_simulation"))
+  "Predefined ordered sets of project workspaces.")
+
+
+(defun my/load-workspace-project-set (set-name)
+  "Replace current workspaces with projects belonging to SET-NAME."
+  (interactive)
+
+  (let ((projects
+         (cdr (assoc set-name my/workspace-project-sets))))
+
+    (unless projects
+      (user-error "Workspace project set %s is not defined" set-name))
+
+    ;; ----------------------------------------------------------
+    ;; 1. Create/open all requested project workspaces.
+    ;; ----------------------------------------------------------
+    (dolist (project projects)
+      (let* ((root
+              (file-name-as-directory
+               (expand-file-name project my/workspace-project-root)))
+             (readme
+              (expand-file-name "README.md" root))
+             (cmake
+              (expand-file-name "CMakeLists.txt" root)))
+
+        (unless (file-directory-p root)
+          (user-error "Project directory does not exist: %s" root))
+
+        (+workspace-switch project t)
+
+        (setq default-directory root)
+
+        ;; Preferred startup file:
+        ;;   1. README.md
+        ;;   2. CMakeLists.txt
+        ;;   3. Project directory
+        (cond
+         ((file-exists-p readme)
+          (find-file readme))
+         ((file-exists-p cmake)
+          (find-file cmake))
+         (t
+          (dired root)))))
+
+    ;; ----------------------------------------------------------
+    ;; 2. Switch to the first desired workspace.
+    ;; ----------------------------------------------------------
+    (+workspace-switch (car projects))
+
+    ;; ----------------------------------------------------------
+    ;; 3. Kill every LIVE perspective not belonging to this set.
+    ;;    This removes "main" and any other old workspaces.
+    ;; ----------------------------------------------------------
+    (dolist (workspace (+workspace-list-names))
+      (unless (member workspace projects)
+        (persp-kill workspace)))
+
+    ;; ----------------------------------------------------------
+    ;; 4. Finish on the first workspace.
+    ;; ----------------------------------------------------------
+    (+workspace-switch (car projects))))
+
+(defun my/load-workspace-project-set-1 ()
+  "Load development workspace set 1."
+  (interactive)
+  (my/load-workspace-project-set "1"))
+
+
+(after! persp-mode
+  (map! :leader
+        (:prefix ("TAB" . "workspace")
+                 (:prefix ("p" . "project sets")
+                  :desc "Load project set Argus"
+                  "1" #'my/load-workspace-project-set-1))))
