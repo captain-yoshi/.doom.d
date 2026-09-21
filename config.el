@@ -738,70 +738,110 @@
   "Predefined ordered sets of project workspaces.")
 
 
+;;; ============================================================
+;;; Load workspace project set
+;;; ============================================================
+
 (defun my/load-workspace-project-set (set-name)
-  "Replace current workspaces with projects belonging to SET-NAME."
+  "Replace all current workspaces with fresh project workspaces from SET-NAME."
   (interactive)
 
-  (let ((projects
-         (cdr (assoc set-name my/workspace-project-sets))))
+  (let* ((projects
+          (cdr (assoc set-name my/workspace-project-sets)))
+         (original-workspace
+          (+workspace-current-name)))
 
     (unless projects
       (user-error "Workspace project set %s is not defined" set-name))
 
     ;; ----------------------------------------------------------
-    ;; 1. Create/open all requested project workspaces.
+    ;; 1. Kill ALL existing workspaces except the current one.
+    ;; ----------------------------------------------------------
+    (dolist (workspace (+workspace-list-names))
+      (unless (equal workspace original-workspace)
+        (persp-kill workspace)))
+
+    ;; ----------------------------------------------------------
+    ;; 2. Create every project workspace from scratch.
     ;; ----------------------------------------------------------
     (dolist (project projects)
+
       (let* ((root
               (file-name-as-directory
-               (expand-file-name project my/workspace-project-root)))
+               (expand-file-name
+                project
+                my/workspace-project-root)))
+
              (readme
               (expand-file-name "README.md" root))
+
              (cmake
               (expand-file-name "CMakeLists.txt" root)))
 
         (unless (file-directory-p root)
-          (user-error "Project directory does not exist: %s" root))
+          (user-error
+           "Project directory does not exist: %s"
+           root))
 
+        ;; Create a NEW perspective.
         (+workspace-switch project t)
 
-        (setq default-directory root)
-
-        ;; Preferred startup file:
+        ;; ------------------------------------------------------
+        ;; Open preferred startup file.
+        ;;
+        ;; Priority:
         ;;   1. README.md
         ;;   2. CMakeLists.txt
-        ;;   3. Project directory
+        ;;   3. Dired
+        ;; ------------------------------------------------------
         (cond
          ((file-exists-p readme)
           (find-file readme))
+
          ((file-exists-p cmake)
           (find-file cmake))
+
          (t
-          (dired root)))))
+          (dired root)))
+
+        ;; IMPORTANT:
+        ;; Set default-directory AFTER find-file/dired so it is
+        ;; set on the actual project buffer we just switched to.
+        (setq default-directory root)))
 
     ;; ----------------------------------------------------------
-    ;; 2. Switch to the first desired workspace.
+    ;; 3. Leave the original workspace.
     ;; ----------------------------------------------------------
     (+workspace-switch (car projects))
 
     ;; ----------------------------------------------------------
-    ;; 3. Kill every LIVE perspective not belonging to this set.
-    ;;    This removes "main" and any other old workspaces.
+    ;; 4. Kill original workspace ("main", etc.).
     ;; ----------------------------------------------------------
-    (dolist (workspace (+workspace-list-names))
-      (unless (member workspace projects)
-        (persp-kill workspace)))
+    (when (and original-workspace
+               (not (member original-workspace projects))
+               (member original-workspace
+                       (+workspace-list-names)))
+      (persp-kill original-workspace))
 
     ;; ----------------------------------------------------------
-    ;; 4. Finish on the first workspace.
+    ;; 5. Finish on first project.
     ;; ----------------------------------------------------------
     (+workspace-switch (car projects))))
+
+
+;;; ============================================================
+;;; Project set commands
+;;; ============================================================
 
 (defun my/load-workspace-project-set-1 ()
   "Load development workspace set 1."
   (interactive)
   (my/load-workspace-project-set "1"))
 
+
+;;; ============================================================
+;;; Key bindings
+;;; ============================================================
 
 (after! persp-mode
   (map! :leader
