@@ -643,7 +643,7 @@
 ;;   SPC TAB 1   -> waits this long, then selects workspace 1
 ;;   SPC TAB 15  -> immediately selects workspace 15
 ;;   SPC TAB 2   -> immediately selects workspace 2
-(defvar my/workspace-number-timeout 0.35
+(defvar my/workspace-number-timeout 0.6
   "Seconds to wait for another workspace digit.")
 
 (defun my/workspace-switch-number (first-digit)
