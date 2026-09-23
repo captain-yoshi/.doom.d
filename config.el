@@ -720,13 +720,14 @@
      "camera_control_lab"
      "argus_experiment"
      "argus_framework"
-     "argus_framework_datalogger"
      "argus_core"
+     "argus_system"
      "argus_model"
      "argus_control"
      "argus_trajectory"
-     "argus_system"
      "argus_vision"
+     "argus_vision_ffmpeg"
+     "argus_vision_gstreamer"
      "argus_async"
      "argus_stimulus"
      "argus_input"
@@ -734,7 +735,9 @@
      "argus_hardware"
      "argus_hardware_axis"
      "argus_hardware_infiniti"
-     "argus_hardware_simulation"))
+     "argus_hardware_simulation"
+     "argus_telemetry"
+     "argus_telemetry_datalogger"))
   "Predefined ordered sets of project workspaces.")
 
 
