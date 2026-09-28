@@ -720,6 +720,8 @@
      "camera_control_lab"
      "argus_experiment"
      "argus_framework"
+     "argus_runtime"
+     "argus_components"
      "argus_core"
      "argus_system"
      "argus_model"
