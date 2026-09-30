@@ -731,6 +731,7 @@
      "argus_vision_ffmpeg"
      "argus_vision_gstreamer"
      "argus_vision_sdl3"
+     "argus_vision_onnx"
      "argus_async"
      "argus_stimulus"
      "argus_input"
