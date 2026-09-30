@@ -596,7 +596,7 @@
   (setq gptel-backend
         (gptel-make-gh-copilot "Copilot"))
 
-  (setq gptel-model 'claude-sonnet-4.6))
+  (setq gptel-model 'claude-sonnet-5))
 
 
 ;; -------------------------------
