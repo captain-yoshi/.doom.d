@@ -856,3 +856,138 @@
                  (:prefix ("p" . "project sets")
                   :desc "Load project set Argus"
                   "1" #'my/load-workspace-project-set-1))))
+
+
+
+
+;;; ============================================================
+;;; LaTeX — AUCTeX + latexmk + PDF Tools
+;;; ============================================================
+
+(setq +latex-viewers '(pdf-tools))
+
+;; ------------------------------------------------------------
+;; AUCTeX
+;; ------------------------------------------------------------
+
+(after! tex
+  (setq-default TeX-engine 'luatex)
+
+  (setq TeX-PDF-mode t
+        TeX-auto-save t
+        TeX-parse-self t
+        TeX-save-query nil
+        TeX-source-correlate-method 'synctex
+        TeX-source-correlate-start-server t
+        TeX-view-program-selection
+        '((output-pdf "PDF Tools")))
+
+  ;; Register latexmk with AUCTeX.
+  (add-to-list
+   'TeX-command-list
+   '("LatexMk"
+     "latexmk %s"
+     TeX-run-TeX
+     nil
+     t
+     :help "Compile with latexmk"))
+
+  ;; Default compilation command.
+  (setq TeX-command-default "LatexMk")
+
+  ;; AUCTeX keybindings.
+  (map! :map LaTeX-mode-map
+        "C-c C-c" #'TeX-command-master
+        "C-c C-v" #'TeX-view
+        "C-c C-k" #'TeX-kill-job))
+
+
+;; ------------------------------------------------------------
+;; LaTeX mode
+;; ------------------------------------------------------------
+
+(add-hook 'LaTeX-mode-hook
+          (lambda ()
+            (setq-local TeX-engine 'luatex)
+            (TeX-source-correlate-mode 1)))
+
+
+;; ------------------------------------------------------------
+;; PDF Tools
+;; ------------------------------------------------------------
+
+(after! pdf-view
+  (setq-default pdf-view-display-size 'fit-width)
+
+  ;; Automatically refresh PDF when recompiled.
+  (add-hook 'pdf-view-mode-hook #'auto-revert-mode)
+
+  ;; Arrow key navigation.
+  (evil-define-key '(normal visual insert) pdf-view-mode-map
+    (kbd "<left>")  #'pdf-view-previous-page
+    (kbd "<right>") #'pdf-view-next-page))
+
+;; ------------------------------------------------------------
+;; PDF output discovery
+;; ------------------------------------------------------------
+
+(defun my/latex-pdf-file ()
+  "Find the compiled PDF for the current LaTeX master."
+  (let* ((master (expand-file-name
+                  (TeX-master-file t)))
+         (directory (file-name-directory master))
+         (name (file-name-base master))
+         (filename (concat name ".pdf"))
+         (candidates
+          (list
+           (expand-file-name filename directory)
+           (expand-file-name
+            (concat "build/" filename) directory))))
+
+    (or (seq-find #'file-exists-p candidates)
+        (user-error
+         "Compiled PDF not found for %s" master))))
+
+
+;; ------------------------------------------------------------
+;; Right-side PDF viewer
+;; ------------------------------------------------------------
+
+(defun my/latex-view-right ()
+  "Display the compiled PDF to the right of the source."
+  (interactive)
+
+  (unless (derived-mode-p 'LaTeX-mode)
+    (user-error "Not in a LaTeX buffer"))
+
+  (let* ((source-window (selected-window))
+         (pdf (my/latex-pdf-file))
+         (pdf-buffer (find-file-noselect pdf))
+         (pdf-window
+          (or (get-buffer-window pdf-buffer)
+              (split-window source-window nil 'right))))
+
+    (set-window-buffer pdf-window pdf-buffer)
+
+    (with-selected-window pdf-window
+      (when (derived-mode-p 'pdf-view-mode)
+        (pdf-view-fit-width-to-window)))
+
+    (select-window source-window)))
+
+
+;; ------------------------------------------------------------
+;; Keybindings
+;; ------------------------------------------------------------
+
+(map! :map LaTeX-mode-map
+      :localleader
+
+      :desc "Compile LaTeX"
+      "c" #'TeX-command-master
+
+      :desc "View PDF"
+      "v" #'TeX-view
+
+      :desc "PDF on right"
+      "p" #'my/latex-view-right)
