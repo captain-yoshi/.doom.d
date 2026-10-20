@@ -871,7 +871,9 @@
 ;; ------------------------------------------------------------
 
 (after! tex
-  (setq-default TeX-engine 'luatex)
+  ;; Global fallback for projects without local configuration.
+  (setq-default TeX-engine 'default
+                TeX-command-default "LaTeX")
 
   (setq TeX-PDF-mode t
         TeX-auto-save t
@@ -882,7 +884,8 @@
         TeX-view-program-selection
         '((output-pdf "PDF Tools")))
 
-  ;; Register latexmk with AUCTeX.
+  ;; Register latexmk.
+  ;; Compiler and output options are controlled by .latexmkrc.
   (add-to-list
    'TeX-command-list
    '("LatexMk"
@@ -890,14 +893,27 @@
      TeX-run-TeX
      nil
      t
-     :help "Compile with latexmk"))
+     :help "Compile using project .latexmkrc"))
 
-  ;; Default compilation command.
-  (setq TeX-command-default "LatexMk")
+  ;; Compile using the current project's configured command.
+  (defun my/latex-compile ()
+    "Compile using latexmk when configured, otherwise use AUCTeX."
+    (interactive)
+    (let* ((master (expand-file-name (TeX-master-file t)))
+           (directory (file-name-directory master))
+           (latexmkrc
+            (or (file-exists-p
+                 (expand-file-name ".latexmkrc" directory))
+                (file-exists-p
+                 (expand-file-name "latexmkrc" directory))))
+           (command (if latexmkrc "LatexMk" TeX-command-default)))
+      (TeX-command command 'TeX-master-file -1)))
+
+
 
   ;; AUCTeX keybindings.
   (map! :map LaTeX-mode-map
-        "C-c C-c" #'TeX-command-master
+        "C-c C-c" #'my/latex-compile
         "C-c C-v" #'TeX-view
         "C-c C-k" #'TeX-kill-job))
 
@@ -908,9 +924,7 @@
 
 (add-hook 'LaTeX-mode-hook
           (lambda ()
-            (setq-local TeX-engine 'luatex)
             (TeX-source-correlate-mode 1)))
-
 
 ;; ------------------------------------------------------------
 ;; PDF Tools
@@ -919,10 +933,13 @@
 (after! pdf-view
   (setq-default pdf-view-display-size 'fit-width)
 
-  ;; Automatically refresh PDF when recompiled.
-  (add-hook 'pdf-view-mode-hook #'auto-revert-mode)
+  ;; Automatically refresh when PDF changes.
+  (add-hook 'pdf-view-mode-hook
+            (lambda ()
+              (setq-local auto-revert-interval 1)
+              (auto-revert-mode 1)))
 
-  ;; Arrow key navigation.
+  ;; PDF navigation.
   (evil-define-key '(normal visual insert) pdf-view-mode-map
     (kbd "<left>")  #'pdf-view-previous-page
     (kbd "<right>") #'pdf-view-next-page))
@@ -933,21 +950,21 @@
 
 (defun my/latex-pdf-file ()
   "Find the compiled PDF for the current LaTeX master."
-  (let* ((master (expand-file-name
-                  (TeX-master-file t)))
+  (let* ((master (expand-file-name (TeX-master-file t)))
          (directory (file-name-directory master))
          (name (file-name-base master))
          (filename (concat name ".pdf"))
          (candidates
           (list
-           (expand-file-name filename directory)
+           ;; Prefer build/ output.
            (expand-file-name
-            (concat "build/" filename) directory))))
+            (concat "build/" filename) directory)
+
+           ;; Fallback to project root.
+           (expand-file-name filename directory))))
 
     (or (seq-find #'file-exists-p candidates)
-        (user-error
-         "Compiled PDF not found for %s" master))))
-
+        (user-error "Compiled PDF not found for %s" master))))
 
 ;; ------------------------------------------------------------
 ;; Right-side PDF viewer
@@ -967,14 +984,33 @@
           (or (get-buffer-window pdf-buffer)
               (split-window source-window nil 'right))))
 
+    ;; Ensure PDF Tools is active.
+    (with-current-buffer pdf-buffer
+      (unless (derived-mode-p 'pdf-view-mode)
+        (pdf-view-mode))
+
+      ;; Refresh only when the file has changed.
+      (when (not (verify-visited-file-modtime pdf-buffer))
+        (revert-buffer nil t)))
+
+    ;; Display PDF in the right window.
     (set-window-buffer pdf-window pdf-buffer)
 
     (with-selected-window pdf-window
-      (when (derived-mode-p 'pdf-view-mode)
-        (pdf-view-fit-width-to-window)))
+      (pdf-view-fit-width-to-window))
 
+    ;; Return focus to LaTeX.
     (select-window source-window)))
 
+;; ------------------------------------------------------------
+;; PDF Tools initialization
+;; ------------------------------------------------------------
+
+(after! pdf-tools
+  ;; Ensure PDFs open in PDF Tools instead of raw text mode.
+  (pdf-tools-install)
+  (add-to-list 'auto-mode-alist
+               '("\\.pdf\\'" . pdf-view-mode)))
 
 ;; ------------------------------------------------------------
 ;; Keybindings
@@ -983,8 +1019,11 @@
 (map! :map LaTeX-mode-map
       :localleader
 
-      :desc "Compile LaTeX"
-      "c" #'TeX-command-master
+      :desc "Compile project"
+      "c" #'my/latex-compile
+
+      :desc "Choose LaTeX command"
+      "m" #'TeX-command-master
 
       :desc "View PDF"
       "v" #'TeX-view
