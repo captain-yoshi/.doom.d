@@ -897,10 +897,12 @@
 
   ;; Compile using the current project's configured command.
   (defun my/latex-compile ()
-    "Compile using latexmk when configured, otherwise use AUCTeX."
+    "Compile the discovered LaTeX master."
     (interactive)
-    (let* ((master (expand-file-name (TeX-master-file t)))
+    (let* ((master (my/latex-master-file))
            (directory (file-name-directory master))
+           (TeX-master
+            (file-relative-name master default-directory))
            (latexmkrc
             (or (file-exists-p
                  (expand-file-name ".latexmkrc" directory))
@@ -908,7 +910,6 @@
                  (expand-file-name "latexmkrc" directory))))
            (command (if latexmkrc "LatexMk" TeX-command-default)))
       (TeX-command command 'TeX-master-file -1)))
-
 
 
   ;; AUCTeX keybindings.
@@ -945,22 +946,49 @@
     (kbd "<right>") #'pdf-view-next-page))
 
 ;; ------------------------------------------------------------
+;; LaTeX — Automatic master discovery
+;; ------------------------------------------------------------
+
+(defun my/latex-master-file ()
+  "Find the LaTeX master document for the current buffer."
+  (let* ((current (or buffer-file-name
+                      (user-error "Buffer has no file")))
+         (directory (file-name-directory current))
+         (root (or (locate-dominating-file directory ".latexmkrc")
+                   (locate-dominating-file directory "latexmkrc")
+                   (locate-dominating-file directory "main.tex"))))
+
+    (cond
+     ;; Respect an explicitly configured AUCTeX master.
+     ((and (stringp TeX-master)
+           (not (string-empty-p TeX-master)))
+      (expand-file-name TeX-master directory))
+
+     ;; Project with a root main.tex.
+     ((and root
+           (file-exists-p (expand-file-name "main.tex" root)))
+      (expand-file-name "main.tex" root))
+
+     ;; Fall back to AUCTeX.
+     (t
+      (expand-file-name (TeX-master-file t))))))
+
+
+;; ------------------------------------------------------------
 ;; PDF output discovery
 ;; ------------------------------------------------------------
 
 (defun my/latex-pdf-file ()
   "Find the compiled PDF for the current LaTeX master."
-  (let* ((master (expand-file-name (TeX-master-file t)))
+  (let* ((master (my/latex-master-file))
          (directory (file-name-directory master))
          (name (file-name-base master))
          (filename (concat name ".pdf"))
          (candidates
           (list
-           ;; Prefer build/ output.
            (expand-file-name
             (concat "build/" filename) directory)
 
-           ;; Fallback to project root.
            (expand-file-name filename directory))))
 
     (or (seq-find #'file-exists-p candidates)
