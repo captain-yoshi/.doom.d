@@ -967,11 +967,11 @@
         (user-error "Compiled PDF not found for %s" master))))
 
 ;; ------------------------------------------------------------
-;; Right-side PDF viewer
+;; Right-side PDF viewer — toggle
 ;; ------------------------------------------------------------
 
 (defun my/latex-view-right ()
-  "Display the compiled PDF to the right of the source."
+  "Toggle the compiled PDF in a right-side window."
   (interactive)
 
   (unless (derived-mode-p 'LaTeX-mode)
@@ -980,27 +980,36 @@
   (let* ((source-window (selected-window))
          (pdf (my/latex-pdf-file))
          (pdf-buffer (find-file-noselect pdf))
-         (pdf-window
-          (or (get-buffer-window pdf-buffer)
-              (split-window source-window nil 'right))))
+         (pdf-window (get-buffer-window pdf-buffer)))
 
-    ;; Ensure PDF Tools is active.
-    (with-current-buffer pdf-buffer
-      (unless (derived-mode-p 'pdf-view-mode)
-        (pdf-view-mode))
+    (if pdf-window
+        ;; PDF already visible: close its window.
+        (progn
+          (unless (eq pdf-window source-window)
+            (delete-window pdf-window))
+          (select-window source-window))
 
-      ;; Refresh only when the file has changed.
-      (when (not (verify-visited-file-modtime pdf-buffer))
-        (revert-buffer nil t)))
+      ;; PDF not visible: open it on the right.
+      (let ((new-window
+             (split-window source-window nil 'right)))
 
-    ;; Display PDF in the right window.
-    (set-window-buffer pdf-window pdf-buffer)
+        ;; Ensure PDF Tools is active.
+        (with-current-buffer pdf-buffer
+          (unless (derived-mode-p 'pdf-view-mode)
+            (pdf-view-mode))
 
-    (with-selected-window pdf-window
-      (pdf-view-fit-width-to-window))
+          ;; Refresh if the PDF changed.
+          (unless (verify-visited-file-modtime pdf-buffer)
+            (revert-buffer nil t)))
 
-    ;; Return focus to LaTeX.
-    (select-window source-window)))
+        ;; Display PDF on the right.
+        (set-window-buffer new-window pdf-buffer)
+
+        (with-selected-window new-window
+          (pdf-view-fit-width-to-window))
+
+        ;; Keep focus on LaTeX source.
+        (select-window source-window)))))
 
 ;; ------------------------------------------------------------
 ;; PDF Tools initialization
