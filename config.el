@@ -1022,6 +1022,14 @@
                '("\\.pdf\\'" . pdf-view-mode)))
 
 ;; ------------------------------------------------------------
+;; LaTeX — Disable inline image previews
+;; ------------------------------------------------------------
+
+(after! latex
+  (remove-hook 'LaTeX-mode-hook #'preview-latex-mode)
+  (remove-hook 'LaTeX-mode-hook #'preview-mode-setup))
+
+;; ------------------------------------------------------------
 ;; Keybindings
 ;; ------------------------------------------------------------
 
