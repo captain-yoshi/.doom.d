@@ -871,9 +871,9 @@
 ;; ------------------------------------------------------------
 
 (after! tex
-  ;; Global fallback for projects without local configuration.
+  ;; Use latexmk as the default compiler.
   (setq-default TeX-engine 'default
-                TeX-command-default "LaTeX")
+                TeX-command-default "LatexMk")
 
   (setq TeX-PDF-mode t
         TeX-auto-save t
@@ -895,29 +895,20 @@
      t
      :help "Compile using project .latexmkrc"))
 
-  ;; Compile using the current project's configured command.
+  ;; Always compile the discovered LaTeX master using latexmk.
   (defun my/latex-compile ()
-    "Compile the discovered LaTeX master."
+    "Compile the discovered LaTeX master using latexmk."
     (interactive)
     (let* ((master (my/latex-master-file))
-           (directory (file-name-directory master))
            (TeX-master
-            (file-relative-name master default-directory))
-           (latexmkrc
-            (or (file-exists-p
-                 (expand-file-name ".latexmkrc" directory))
-                (file-exists-p
-                 (expand-file-name "latexmkrc" directory))))
-           (command (if latexmkrc "LatexMk" TeX-command-default)))
-      (TeX-command command 'TeX-master-file -1)))
-
+            (file-relative-name master default-directory)))
+      (TeX-command "LatexMk" 'TeX-master-file -1)))
 
   ;; AUCTeX keybindings.
   (map! :map LaTeX-mode-map
         "C-c C-c" #'my/latex-compile
         "C-c C-v" #'TeX-view
         "C-c C-k" #'TeX-kill-job))
-
 
 ;; ------------------------------------------------------------
 ;; LaTeX mode
@@ -1033,8 +1024,8 @@
         ;; Display PDF on the right.
         (set-window-buffer new-window pdf-buffer)
 
-        (with-selected-window new-window
-          (pdf-view-fit-width-to-window))
+        ;; (with-selected-window new-window
+        ;;   (pdf-view-fit-width-to-window))
 
         ;; Keep focus on LaTeX source.
         (select-window source-window)))))
@@ -1047,7 +1038,13 @@
   ;; Ensure PDFs open in PDF Tools instead of raw text mode.
   (pdf-tools-install)
   (add-to-list 'auto-mode-alist
-               '("\\.pdf\\'" . pdf-view-mode)))
+               '("\\.pdf\\'" . pdf-view-mode))
+
+
+  ;; Double-click PDF to jump to LaTeX source.
+  (define-key pdf-view-mode-map
+              [double-mouse-1]
+              #'pdf-sync-backward-search))
 
 ;; ------------------------------------------------------------
 ;; LaTeX — Disable inline image previews
