@@ -240,27 +240,36 @@
     (my/magit-status-smart (expand-file-name name my/workspace-project-root))))
 
 (defun my/global-git-close ()
-  "Close Global Git and restore the previous layout."
+  "Close Global Git, restore the layout and return focus."
   (interactive)
   (when-let ((win (get-buffer-window my/global-git-buffer-name nil)))
-    (let ((saved (gethash win my/global-git--saved-windows)))
+    (let* ((saved (gethash win my/global-git--saved-windows))
+           (source (pcase (car-safe saved)
+                     ('created (nth 1 saved))
+                     ('restore (nth 5 saved)))))
       (remhash win my/global-git--saved-windows)
 
       (pcase (car-safe saved)
-        ;; New window: delete it so the editor fills the space.
+        ;; Git created a window: remove it entirely.
         ('created
-         (delete-window win))
+         (when (not (one-window-p t))
+           (delete-window win)))
 
-        ;; Existing window: restore its previous buffer.
+        ;; Git reused a window: restore its original contents.
         ('restore
          (set-window-dedicated-p win nil)
          (set-window-buffer win (nth 1 saved))
          (set-window-point win (nth 2 saved))
-         (set-window-start win (nth 3 saved) t))
+         (set-window-start win (nth 3 saved) t)
+         (set-window-dedicated-p win (nth 4 saved)))
 
-        ;; Fallback if the window state was lost.
+        ;; Fallback.
         (_
-         (quit-window nil win))))))
+         (quit-window nil win)))
+
+      ;; Return focus to the window active before Global Git opened.
+      (when (window-live-p source)
+        (select-window source)))))
 
 (define-derived-mode my/global-git-mode tabulated-list-mode "Global-Git"
   "Major mode for the global Git dashboard."
@@ -314,17 +323,20 @@
       ;; Only save an existing window's contents. New windows close on q.
       (puthash target
                (if reuse
-                   (list 'restore (window-buffer target)
-                         (window-point target) (window-start target))
-                 '(created))
+                   (list 'restore
+                         (window-buffer target)
+                         (window-point target)
+                         (window-start target)
+                         (window-dedicated-p target)
+                         source)
+                 (list 'created source))
                my/global-git--saved-windows)
       (with-current-buffer buffer
         (unless (derived-mode-p 'my/global-git-mode)
           (my/global-git-mode)))
       (set-window-dedicated-p target nil)
       (set-window-buffer target buffer)
-      (when (window-live-p source)
-        (select-window source))
+      (select-window target)
       (my/global-git-refresh))))
 
 ;;; ============================================================
