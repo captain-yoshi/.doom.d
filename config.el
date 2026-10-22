@@ -736,6 +736,7 @@
      "argus_vision_sdl3"
      "argus_vision_onnx"
      "argus_async"
+     "argus_network"
      "argus_stimulus"
      "argus_input"
      "argus_characterization"
