@@ -714,6 +714,9 @@
 (defvar my/workspace-project-root "~/ws/dev/"
   "Root directory containing development projects.")
 
+(defvar my/active-workspace-project-set nil
+  "Most recently loaded workspace project set, or nil.")
+
 (defvar my/workspace-project-sets
   '(("1"
      "datalogger"
@@ -833,7 +836,10 @@
     ;; ----------------------------------------------------------
     ;; 5. Finish on first project.
     ;; ----------------------------------------------------------
-    (+workspace-switch (car projects))))
+    (+workspace-switch (car projects))
+
+    ;; Remember the successfully loaded project set.
+    (setq my/active-workspace-project-set set-name)))
 
 
 ;;; ============================================================
@@ -1072,3 +1078,11 @@
 
       :desc "PDF on right"
       "p" #'my/latex-view-right)
+
+
+
+;;; ============================================================
+;;; Global Git Status — SPC g p
+;;; ============================================================
+
+(load! "modules/global-git/config")
