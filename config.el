@@ -935,6 +935,10 @@
   ;; Automatically refresh when PDF changes.
   (add-hook 'pdf-view-mode-hook
             (lambda ()
+              ;; Disable line numbers (prevents gutter resizing).
+              (display-line-numbers-mode -1)
+
+              ;; Automatically refresh PDF.
               (setq-local auto-revert-interval 1)
               (auto-revert-mode 1)))
 
