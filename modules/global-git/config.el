@@ -62,83 +62,83 @@
 (defun my/global-git--entries ()
   "Build colored rows for the Git dashboard."
   (let (entries)
-    (dolist (name (my/global-git--projects))
-      (let* ((data (alist-get name my/global-git--results nil nil #'equal))
-             (state (cond
-                     ((not data) "waiting")
-                     ((eq data :error) "error")
-                     ((zerop (+ (plist-get data :staged)
-                                (plist-get data :modified)
-                                (plist-get data :untracked)))
-                      "clean")
-                     (t "dirty")))
-             (state-face
-              (pcase state
-                ("clean" 'success)
-                ("dirty" 'warning)
-                ("error" 'error)
-                (_ 'shadow))))
+    (cl-loop for name in (my/global-git--projects)
+             for index from 1
+             do
+             (let* ((data (alist-get name my/global-git--results nil nil #'equal))
+                    (state (cond
+                            ((not data) "waiting")
+                            ((eq data :error) "error")
+                            ((zerop (+ (plist-get data :staged)
+                                       (plist-get data :modified)
+                                       (plist-get data :untracked)))
+                             "clean")
+                            (t "dirty")))
+                    (state-face
+                     (pcase state
+                       ("clean" 'success)
+                       ("dirty" 'warning)
+                       ("error" 'error)
+                       (_ 'shadow))))
 
-        ;; Project summary.
-        (push
-         (list name
-               (vector
-                (concat
-                 (if (member name my/global-git--expanded)
-                     "▾ " "▸ ")
-                 (propertize name
-                             'face (if (equal state "dirty")
+               ;; Project summary.
+               (push
+                (list name
+                      (vector
+                       (let ((face (if (equal state "dirty")
                                        'font-lock-warning-face
                                      'default)))
+                         (propertize (format "%2d  %s" index name)
+                                     'face face))
 
-                (my/global-git--color
-                 (if (listp data)
-                     (plist-get data :branch) "-")
-                 'font-lock-keyword-face)
+                       (my/global-git--color
+                        (if (listp data)
+                            (plist-get data :branch) "-")
+                        'font-lock-keyword-face)
 
-                (my/global-git--color
-                 (if (listp data) (plist-get data :staged) "-")
-                 'success)
+                       (my/global-git--color
+                        (if (listp data) (plist-get data :staged) "-")
+                        'success)
 
-                (my/global-git--color
-                 (if (listp data) (plist-get data :modified) "-")
-                 'warning)
+                       (my/global-git--color
+                        (if (listp data) (plist-get data :modified) "-")
+                        'warning)
 
-                (my/global-git--color
-                 (if (listp data) (plist-get data :untracked) "-")
-                 'font-lock-warning-face)
+                       (my/global-git--color
+                        (if (listp data) (plist-get data :untracked) "-")
+                        'font-lock-warning-face)
 
-                (my/global-git--color
-                 (if (listp data) (plist-get data :ahead) "-")
-                 'font-lock-type-face)
+                       (my/global-git--color
+                        (if (listp data) (plist-get data :ahead) "-")
+                        'font-lock-type-face)
 
-                (my/global-git--color
-                 (if (listp data) (plist-get data :behind) "-")
-                 'error)
+                       (my/global-git--color
+                        (if (listp data) (plist-get data :behind) "-")
+                        'error)
 
-                (propertize state 'face state-face)))
-         entries)
+                       (propertize state 'face state-face)))
+                entries)
 
-        ;; Expanded changed files.
-        (when (and (listp data)
-                   (member name my/global-git--expanded))
-          (dolist (file (plist-get data :files))
-            (let* ((status (car file))
-                   (path (cdr file))
-                   (face (cond
-                          ((equal status "?") 'font-lock-warning-face)
-                          ((string-match-p "D" status) 'error)
-                          ((string-match-p "A" status) 'success)
-                          (t 'warning))))
-              (push
-               (list (cons name path)
-                     (vector
-                      (concat "    "
-                              (propertize status 'face face)
-                              " "
-                              (propertize path 'face 'shadow))
-                      "" "" "" "" "" "" ""))
-               entries))))))
+               ;; Expanded changed files.
+               (when (and (listp data)
+                          (member name my/global-git--expanded))
+                 (dolist (file (plist-get data :files))
+                   (let* ((status (car file))
+                          (path (cdr file))
+                          (face (cond
+                                 ((equal status "?") 'font-lock-warning-face)
+                                 ((string-match-p "D" status) 'error)
+                                 ((string-match-p "A" status) 'success)
+                                 (t 'warning))))
+                     (push
+                      (list (cons name path)
+                            (vector
+                             (concat "    "
+                                     (propertize status 'face face)
+                                     " "
+                                     (propertize path 'face 'shadow))
+                             "" "" "" "" "" "" ""))
+                      entries))))))
 
     (nreverse entries)))
 
