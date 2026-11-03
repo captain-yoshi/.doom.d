@@ -171,36 +171,39 @@
             (push (cons name :error) my/global-git--results)
             (kill-buffer output)
             (my/global-git--render))
-        (condition-case nil
-            (let ((process
-                   (make-process
-                    :name (concat "global-git-" name)
-                    :buffer output :noquery t
-                    :command (list "git" "-C" root "status" "--porcelain=v2"
-                                   "--branch" "--untracked-files=normal")
-                    :sentinel
-                    (lambda (proc _event)
-                      (when (memq (process-status proc) '(exit signal))
-                        (setq my/global-git--processes
-                              (delq proc my/global-git--processes))
-                        (when (= generation my/global-git--generation)
-                          (cl-decf my/global-git--active)
-                          (push (cons name
-                                      (if (= (process-exit-status proc) 0)
-                                          (my/global-git--parse
-                                           (with-current-buffer (process-buffer proc)
-                                             (buffer-string)))
-                                        :error))
-                                my/global-git--results)
-                          (my/global-git--render))
-                        (when (buffer-live-p (process-buffer proc))
-                          (kill-buffer (process-buffer proc)))
-                        (when (= generation my/global-git--generation)
-                          (my/global-git--pump generation)))))))
+        (condition-case err
+            (let* ((default-directory root)
+                   (process
+                    (make-process
+                     :name (concat "global-git-" name)
+                     :buffer output :noquery t
+                     :command (list "git" "-C" root "status" "--porcelain=v2"
+                                    "--branch" "--untracked-files=normal")
+                     :sentinel
+                     (lambda (proc _event)
+                       (when (memq (process-status proc) '(exit signal))
+                         (setq my/global-git--processes
+                               (delq proc my/global-git--processes))
+                         (when (= generation my/global-git--generation)
+                           (cl-decf my/global-git--active)
+                           (push (cons name
+                                       (if (= (process-exit-status proc) 0)
+                                           (my/global-git--parse
+                                            (with-current-buffer (process-buffer proc)
+                                              (buffer-string)))
+                                         :error))
+                                 my/global-git--results)
+                           (my/global-git--render))
+                         (when (buffer-live-p (process-buffer proc))
+                           (kill-buffer (process-buffer proc)))
+                         (when (= generation my/global-git--generation)
+                           (my/global-git--pump generation)))))))
               (push process my/global-git--processes)
               (cl-incf my/global-git--active))
           (error
-           (kill-buffer output)
+           (message "Global Git ERROR [%s]: %S" name err)
+           (when (buffer-live-p output)
+             (kill-buffer output))
            (push (cons name :error) my/global-git--results)
            (my/global-git--render)))))))
 
