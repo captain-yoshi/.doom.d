@@ -303,8 +303,9 @@
                  (< (nth 1 (window-edges a))
                     (nth 1 (window-edges b))))))))
 
+
 (defun my/global-git-toggle ()
-  "Show Git in the rightmost window; toggle again to restore it."
+  "Show Git in the rightmost window, replacing ECA if present."
   (interactive)
   (unless (or (get-buffer-window my/global-git-buffer-name nil)
               my/active-workspace-project-set)
@@ -313,17 +314,31 @@
       (my/global-git-close)
     (let* ((source (selected-window))
            (buffer (get-buffer-create my/global-git-buffer-name))
-           (ordinary (cl-remove-if
-                      (lambda (w) (window-parameter w 'window-side))
-                      (window-list nil 'nomini)))
-           (right (my/global-git--rightmost-window))
-           ;; If all windows share a left edge, there is no right column.
-           (left-edge (apply #'min (mapcar
-                                    (lambda (w) (car (window-edges w)))
-                                    ordinary)))
-           (reuse (> (car (window-edges right)) left-edge))
-           (target (if reuse right (split-window right nil 'right))))
-      ;; Only save an existing window's contents. New windows close on q.
+           ;; Prefer ECA when it occupies the right side.
+           (eca-window
+            (cl-find-if
+             (lambda (w)
+               (and
+                (eq (window-parameter w 'window-side) 'right)
+                (string-match-p
+                 "eca"
+                 (downcase (buffer-name (window-buffer w))))))
+             (window-list nil 'nomini)))
+           (ordinary
+            (cl-remove-if
+             (lambda (w) (window-parameter w 'window-side))
+             (window-list nil 'nomini)))
+           (right (or eca-window
+                      (my/global-git--rightmost-window)))
+           (left-edge
+            (apply #'min
+                   (mapcar (lambda (w) (car (window-edges w)))
+                           ordinary)))
+           (reuse (or eca-window
+                      (> (car (window-edges right)) left-edge)))
+           (target (if reuse right
+                     (split-window right nil 'right))))
+      ;; Save the previous buffer and window state.
       (puthash target
                (if reuse
                    (list 'restore
@@ -337,6 +352,7 @@
       (with-current-buffer buffer
         (unless (derived-mode-p 'my/global-git-mode)
           (my/global-git-mode)))
+      ;; ECA side windows may be dedicated.
       (set-window-dedicated-p target nil)
       (set-window-buffer target buffer)
       (select-window target)
