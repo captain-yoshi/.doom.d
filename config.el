@@ -735,6 +735,8 @@
      "argus_vision_gstreamer"
      "argus_vision_sdl3"
      "argus_vision_onnx"
+     "argus_vision_tensorrt"
+     "argus_vision_tracking_models"
      "argus_async"
      "argus_network"
      "argus_stimulus"
