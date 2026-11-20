@@ -1,4 +1,4 @@
-;;; $DOOMDIR/config.el -*- lexical-binding: t; -*-
+;;; $DOOMDIR/config
 
 ;; Place your private configuration here! Remember, you do not need to run 'doom
 ;; sync' after modifying this file!
@@ -663,7 +663,7 @@
               ;; Second digit entered.
               (let ((number (+ (* first 10) (- event ?0))))
                 (if (<= 1 number count)
-                    (+workspace/switch-to
+                    (+workspace-switch
                      (nth (1- number) workspaces))
                   (message "Workspace %d does not exist" number)))
 
@@ -673,15 +673,39 @@
               (setq unread-command-events
                     (cons event unread-command-events)))
 
-            (+workspace/switch-to
+            (+workspace-switch
              (nth (1- first) workspaces))))
 
       ;; No valid two-digit number can start with FIRST,
       ;; so switch immediately.
       (if (<= first count)
-          (+workspace/switch-to
+          (+workspace-switch
            (nth (1- first) workspaces))
         (message "Workspace %d does not exist" first)))))
+
+(defun my/workspace-next ()
+  "Switch to the next workspace."
+  (interactive)
+  (let* ((workspaces (+workspace-list-names))
+         (index (cl-position (+workspace-current-name)
+                             workspaces
+                             :test #'equal)))
+    (when index
+      (+workspace-switch
+       (nth (mod (1+ index) (length workspaces))
+            workspaces)))))
+
+(defun my/workspace-previous ()
+  "Switch to the previous workspace."
+  (interactive)
+  (let* ((workspaces (+workspace-list-names))
+         (index (cl-position (+workspace-current-name)
+                             workspaces
+                             :test #'equal)))
+    (when index
+      (+workspace-switch
+       (nth (mod (1- index) (length workspaces))
+            workspaces)))))
 
 ;; Generate interactive commands for 1..9.
 (dotimes (i 9)
@@ -696,6 +720,8 @@
 (after! persp-mode
   (map! :leader
         (:prefix ("TAB" . "workspace")
+                 "[" #'my/workspace-previous
+                 "]" #'my/workspace-next
                  "1" #'my/workspace-switch-1
                  "2" #'my/workspace-switch-2
                  "3" #'my/workspace-switch-3
@@ -706,6 +732,10 @@
                  "8" #'my/workspace-switch-8
                  "9" #'my/workspace-switch-9)))
 
+;; Workspace buffer isolation.
+(after! persp-mode
+  (setq persp-add-buffer-on-find-file nil)
+  (setq persp-set-last-persp-for-new-frames nil))
 
 ;;; ============================================================
 ;;; Predefined workspace sets — SPC TAB p <set>
@@ -796,7 +826,7 @@
            "Project directory does not exist: %s"
            root))
 
-        ;; Create a NEW perspective.
+        ;; Create and switch to the project workspace.
         (+workspace-switch project t)
 
         ;; ------------------------------------------------------
@@ -807,20 +837,26 @@
         ;;   2. CMakeLists.txt
         ;;   3. Dired
         ;; ------------------------------------------------------
-        (cond
-         ((file-exists-p readme)
-          (find-file readme))
+        (let ((startup-buffer
+               (cond
+                ((file-exists-p readme)
+                 (find-file-noselect readme))
+                ((file-exists-p cmake)
+                 (find-file-noselect cmake))
+                (t
+                 (dired-noselect root)))))
 
-         ((file-exists-p cmake)
-          (find-file cmake))
+          ;; Register the buffer in its intended workspace.
+          (persp-add-buffer startup-buffer
+                            (persp-get-by-name project)
+                            nil)
 
-         (t
-          (dired root)))
+          ;; Display the startup buffer.
+          (switch-to-buffer startup-buffer)
 
-        ;; IMPORTANT:
-        ;; Set default-directory AFTER find-file/dired so it is
-        ;; set on the actual project buffer we just switched to.
-        (setq default-directory root)))
+          ;; Set the project directory.
+          (with-current-buffer startup-buffer
+            (setq default-directory root)))))
 
     ;; ----------------------------------------------------------
     ;; 3. Leave the original workspace.
